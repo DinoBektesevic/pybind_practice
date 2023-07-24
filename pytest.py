@@ -114,13 +114,6 @@ class Image:
 iimg = Image.fromArray(arrint)  # good for masks?
 fimg = Image.fromArray(arrfloat)
 dimg = Image.fromArray(arrdouble)
-
-
-print(f"test     test")
-print(f"{arrint[0]}{arrdouble[0]}")
-print(f"{arrint[1]}{arrdouble[1]}")
-
-
 print(iimg)
 print(fimg)
 print(dimg)
@@ -153,25 +146,20 @@ array[[0, 0]]    --> array, N-D each element of idx is treated as py::int_ so
 
 This is super hard to override in a consistent way so I didn't. I punted it all
 to python. I don't know how big of a penatly that incurs, if any at all, but it
-does prevent __setitem__ from working because we return a copy.
+does prevent __setitem__ from working because we return a copy. This might not
+be the worst thing though?
 """)
-breakpoint()
-# This returns a new array, so in our case it would have to be a new image?
-#b = arrint[[0, 0]]
-#print(id(b), id(arrint), id(b)==id(arrint), repr(b.view), repr(arrint.view))
-
-#print(iimg[0, 0], iimg[0:1])
-#print(iimg[:0])
-#print(iimg[0], iimg[[0]], iimg[:, 0])
-#print(iimg[[0, 1]], type(iimg[[0, 1]]), type(iimg[0]))
-#print(iimg[0, 1, 2], fimg[0], dimg[0])
+print(iimg[0, 0], iimg[0:1])
+print(iimg[:0])
+print(iimg[0], iimg[[0]], iimg[:, 0])
+print(iimg[[0, 1]], type(iimg[[0, 1]]), type(iimg[0]))
 print()
 
-#print(f"    Timing instantiation for {n_instantiation} repetitions.")
-#bigArrT = timeit.timeit(stmt="core.DoubleImage(bigArr)", globals=globals(), number=n_instantiation)
-#big32ArrT = timeit.timeit(stmt="core.FloatImage(big32Arr)", globals=globals(), number=n_instantiation)
-#print(f"From double: {bigArrT/n_instantiation:>10.7} seconds per iteration; {bigArrT} seconds total.")
-#print(f"From  float: {big32ArrT/n_instantiation:>10.7} seconds per iteration; {big32ArrT} seconds total.")
+print(f"    Timing instantiation for {n_instantiation} repetitions.")
+bigArrT = timeit.timeit(stmt="core.DoubleImage(bigArr)", globals=globals(), number=n_instantiation)
+big32ArrT = timeit.timeit(stmt="core.Int32Image(big32Arr)", globals=globals(), number=n_instantiation)
+print(f"From double: {bigArrT/n_instantiation:>10.7} seconds per iteration; {bigArrT} seconds total.")
+print(f"From  float: {big32ArrT/n_instantiation:>10.7} seconds per iteration; {big32ArrT} seconds total.")
 print()
 
 
@@ -193,18 +181,10 @@ print()
 
 print("Method overloading (arguments don't do anything in this example)")
 print(fimg.addOne(1))
-print(fimg.addOne((1, 2)))
+print(fimg.addOne(1.0))
 print()
 
 
-print("Delete array, then access image. No error expected.")
- # we have to garbage collect in case the object remains alive, just unnamed
-import gc
-del arrdouble
-print(gc.collect(), gc.get_count())
-print(dimg)
-print(gc.is_tracked(dimg)) # doesn't mean what you think it does
-print(gc.garbage)
 # I'll be honest I'm not sure why this works given all the online discussions on
 # what are the appropriate ways to steal a pointer, see for example:
 # https://github.com/pybind/pybind11/issues/3126
@@ -215,39 +195,13 @@ print(gc.garbage)
 # https://github.com/pybind/pybind11/blob/master/include/pybind11/numpy.h#L1020
 # constructors or something. I think I'm calling the L1059 - but unclear how a
 # default "handle"  prevents deletion (I guess it automatically increments a PyRef?)
+print("Delete array, then access image. No error expected.")
+ # we have to garbage collect in case the object remains alive, just unnamed
+import gc
+del arrdouble
+print(gc.collect(), gc.get_count())
+print(dimg)
+print(gc.is_tracked(dimg)) # doesn't mean what you think it does
+print(gc.garbage)
 print()
-
-
-
-
-
-
-
-
-
-#    // note other this is a very general implementation for all kinds of
-#    // containers coming from the Python's side, including lists etc...
-#    py::array_t<bool> operator==(const py::buffer other) const{
-#      auto buff_info = other.request();
-#
-#      if (shape != buff_info.shape)
-#        throw std::invalid_argument("operands could not be broadcast together ");
-#      //                                      "with shapes " + std::to_string(shape) + " " + std::to_string(buff_info.shape));
-#
-#      auto equal = py::array_t<bool>(size);
-#      auto equal_ptr = static_cast<bool*>(equal.request().ptr);
-#      auto other_ptr = static_cast<T>(buff_info.ptr);
-#      py::print("Comparing with buffers!");
-#      for (unsigned i=0; i < size; i++){
-#        if (pixels[i] != other_ptr[i])
-#          equal_ptr[i] = false;
-#        else
-#          equal_ptr[i] = true;
-#      }
-#
-#      equal.resize({width, height});
-#      return equal;
-#    }
-
-#auto_img = Image.fromArray(arr)
 

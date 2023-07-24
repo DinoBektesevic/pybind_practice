@@ -16,17 +16,3 @@ set_target_properties(core PROPERTIES
 target_compile_options(core PUBLIC $<$<COMPILE_LANGUAGE:CXX>:
     -g3
 >)
-
-pybind11_add_module(test SHARED cpptest.cpp bindings.cpp image.cpp)
-#target_link_libraries(test PUBLIC pybind11::module pybind11::pybind11 pybind11::embed)
-#add_executable(test.exe cpptest.cpp)
-
-# hecking heck, I can't link against a pybind11 module
-# so basically I have to declare an independent library here
-# and compile it all again?
-#include_directories(lib/pybind11)
-#add_library(cpptest MODULE cpptest.cpp)
-#target_include_directories(cpptest PUBLIC lib/pybind11 lib/pybind11/include/pybind11)
-#target_link_directories(cpptest PUBLIC lib/pybind11 lib/pybind11/include/pybind11)
-#target_link_libraries(cpptest PUBLIC pybind11::module pybind11::pybind11 lib/pybind11 lib/pybind11/include/pybind11)
-#add_executable(cpptestexe cpptest.cpp)
