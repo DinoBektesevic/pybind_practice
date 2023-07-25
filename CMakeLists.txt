@@ -14,5 +14,7 @@ set_target_properties(core PROPERTIES
 )
 
 target_compile_options(core PUBLIC $<$<COMPILE_LANGUAGE:CXX>:
+    -flto=auto
+    -O0
     -g3
 >)

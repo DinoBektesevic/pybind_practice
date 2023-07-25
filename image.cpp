@@ -20,7 +20,8 @@ namespace model {
   struct Image {
     // I see no reasons why anything should be private. All the methods and
     // attributes exist for NumPy arrays, so the user would expect to see
-    // them if we are already pretending to be a numpy array equivalent
+    // them if we are already pretending to be a numpy array equivalent. Plus
+    // buffer_info has no copy or move constructor.
     unsigned width;
     unsigned height;
     py::ssize_t itemsize;
@@ -29,9 +30,10 @@ namespace model {
     std::string format;
     py::ssize_t ndim;
     std::vector<py::ssize_t> strides;
-    // I really wish I could declare this as an array, because of the [][] and
-    // normalcy, but I don't understand how to cast a void* (see below)
-    T* pixels;
+    // I really wish I could declare this as an array, a smart pointer, anything
+    // that gets me the [][] and normalcy, but I don't understand how to cast a
+    // void* or steal a ref
+    T* data;
 
     /*  ###########################################################
      *                    Constructors and destructors
@@ -42,23 +44,23 @@ namespace model {
       if (info.ndim != 2) throw std::runtime_error("Image must have 2 dimensions.");
 
       // this doesn't exist for np arrays, but we add it because it's guaranteed
-      // we only work with 2D data.
+      // we only work with 2D data and is easier to think about than ij or nm
       this->width = info.shape[1];
       this->height = info.shape[0];
 
-      // All of this exists for a regular np.array and is general-purpose
-      // except maybe the format, which is the numpy name for the datatypes
-      // underlying its formats usually only refered to through a dtype
+      // this also doesn't exist in Np, at least not directly. It's the name
+      // of the datatype that underlies the numpy formats (compiler and system
+      // dependent?); usually only refered to through a dtype
+      this->format = info.format;
+
+      // All of this exists for numpy arrays
       this->shape = info.shape;
       this->strides = info.strides;
       this->itemsize = info.itemsize;
       this->size = info.size;
-      this->format = info.format;
       this->ndim = info.ndim;
-      // I wish I knew how to cast this into an array?
-      this->pixels = static_cast<T*>(info.ptr);
+      this->data = static_cast<T*>(info.ptr);
     }
-
 
     // I do enjoy how I'm constantly forced to strip and then recreate context
     template <size_t rows, size_t cols>
@@ -70,13 +72,12 @@ namespace model {
       this->shape = std::vector<py::ssize_t>({width, height});
       this->format = py::format_descriptor<T>::format();
       this->ndim = 2;
-      this->pixels = &arr[0][0];
+      this->data = &arr[0][0];
     }
-
 
     /*  ###########################################################
      *                    Python and C++ operators
-     * We can adopt an underscore as the secret methods bound to python operators
+     * We can adopt an underscore to mark python operators
      *  ########################################################### */
     std::string _repr(){
       auto arr = this->asArray();
@@ -85,8 +86,7 @@ namespace model {
       return py::str(imgstr);
     }
 
-    // it would probably be better (more general) if this were based on
-    // iterators? Then we wouldn't have to cast lists and buffers?
+    // if this were based on iterators we wouldn't have to cast?
     py::array_t<bool> _compare(const T* other_ptr, std::vector<py::ssize_t> shape) const{
       if (this->shape != shape)
         // dear brother in christ how does anyone format strings in C++ and not lose it
@@ -99,7 +99,7 @@ namespace model {
       auto equal = py::array_t<bool>(this->size);
       auto equal_ptr = static_cast<bool*>(equal.request().ptr);
       for (size_t i=0; i < this->size; i++){
-        if (this->pixels[i] != other_ptr[i])
+        if (this->data[i] != other_ptr[i])
           equal_ptr[i] = false;
         else
           equal_ptr[i] = true;
@@ -116,13 +116,14 @@ namespace model {
     }
 
     py::array_t<bool> operator==(const Image other) const{
-      return this->_compare(other.pixels, other.shape);
+      return this->_compare(other.data, other.shape);
     }
 
     // This is another neat example of how implicit cast makes a copy - if this
     // were a vector, the list wouldn't be passed by reference. It would be a
     // natural thing to expect a vector - because that's what Pybind11 says you
     // should do, but it would also be equally reasonable to expect a buffer
+    // and because of the const, it would be natural to expect a pass-by-ref too
     py::array_t<bool> operator==(const py::list other) const{
       size_t i=0, j=0;
       auto col_stride = this->strides[0];
@@ -135,7 +136,7 @@ namespace model {
       for (auto row : other){
         for (auto elem : row){
           auto idx = i*this->width + j;
-          if (this->pixels[idx] != elem.cast<T>())
+          if (this->data[idx] != elem.cast<T>())
             equal_ptr[idx] = false;
           else
             equal_ptr[idx] = true;
@@ -152,23 +153,21 @@ namespace model {
       return this->asArray().attr("__getitem__")(key);
     }
 
-    // While we can intercept the getitem operator in python by binding it to
-    // a method that exits back to python - we still need reasonable ways of
-    // accessing items in C++
-    T operator()(const unsigned int i, const unsigned int j){
+    // While we can intercept the getitem operator - we still need reasonable
+    // ways of accessing items in C++
+    T operator()(const size_t i, const size_t j){
       if (i*j > this->size)
         throw std::out_of_range("Image index out or range.");
-      return this->pixels[j*width + i];
+      return this->data[j*width + i];
     }
 
-    T* operator()(const unsigned int i){
+    T* operator()(const size_t i){
       if (i > this->width)
         throw std::out_of_range("Image index out or range.");
-      // I really am not sure if this is reasonable?
-      return reinterpret_cast<T (&)[width]> (this->pixels[i*width]);
+      // I really am not sure if this is reasonable way to cast pointers to arr?
+      return reinterpret_cast<T (&)[width]> (this->data[i*width]);
     }
 
-    // Ooh, I just love this line of logic
     friend std::ostream& operator<<(std::ostream &s, const Image<T> &img) {
       return s << img.array2string();
     }
@@ -185,24 +184,15 @@ namespace model {
 
     py::array_t<T> asArray() const {
       // A memory leak? No! it's a copy I think.
-      return py::array_t<T>({height, width}, strides, pixels);
+      return py::array_t<T>({height, width}, strides, data);
     }
 
-    Image& addOne(const int x) {
+    Image& addOne() {
       for (size_t i=0; i<width; i++)
         for (size_t j=0; j<height; j++)
-          pixels[i*height + j] += 1.0;
+          data[i*height + j] += 1.0;
       return *this;
     }
-
-    Image& addOne(const double x) {
-      for (size_t i=0; i<width; i++)
-        for (size_t j=0; j<height; j++)
-          pixels[i*height + j] += 1.0;
-      return *this;
-    }
-
-
   }; // Image
 
 
@@ -215,8 +205,7 @@ namespace model {
     std::string pyclass_name = typestr + std::string("Image");
     py::class_<Class>(m, pyclass_name.c_str(), py::buffer_protocol())
       .def_buffer([](Class &m) -> py::buffer_info {
-          return py::buffer_info(
-                                 m.pixels,
+          return py::buffer_info(m.data,
                                  m.itemsize,
                                  m.format,
                                  m.ndim,
@@ -236,6 +225,15 @@ namespace model {
       .def("__repr__", &Class::_repr)
       .def("__len__", [](){return &Class::size;})
       .def("__getitem__", &Class::_getitem)
+      // Add the () access operator as a get-item for testing, they are
+      // overloaded: https://pybind11.readthedocs.io/en/stable/classes.html#overloaded-methods
+      //static_cast<void (Pet::*)(const std::string &)>
+      // my understanding of this mess is static_cast to a function pointer, i.e.
+      // static_cast<return_type  member_pointer  input_type> (method)
+      // In C++ 14 and higher there is a shorthand py::overload_cast<T>
+      //clever syntactic sugar for == made this unnecessary
+      .def("get", static_cast<T (Class::*)(size_t, size_t)>(&Class::operator()))
+      .def("get", static_cast<T* (Class::*)(size_t)>(&Class::operator()))
 // It does make sense to protect against defining bindings that rely on the Py
 // shared libraries to be loaded in cases when the file is compiled as a self
 // standing C++. In that case the CPython is never loaded.
@@ -246,15 +244,7 @@ namespace model {
       .def(py::self == py::list())
       .def(py::self == py::buffer())
 #endif
-      // https://pybind11.readthedocs.io/en/stable/classes.html#overloaded-methods
-      //static_cast<void (Pet::*)(const std::string &)>
-      // my understanding of this mess is static_cast to a function pointer, i.e.
-      // static_cast< return_type member_pointer input_type > (method)
-      // In C++ 14 and higher there is a shorthand py::overload_cast<T>
-      //clever syntactic sugar for equality operator made this workaround
-      // unnecessary
-      .def("addOne", static_cast<Class& (Class::*)(int)>(&Class::addOne))
-      .def("addOne", static_cast<Class& (Class::*)(float)>(&Class::addOne));
+      .def("addOne", &Class::addOne);
   } // image_type_factory
 }; // namespace model
 #endif /* kbmod_IMAGE_H_ */

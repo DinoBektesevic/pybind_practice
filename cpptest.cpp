@@ -27,7 +27,7 @@ int main(void){
   auto test = model::Image<int>(arr);
   py::print(test.asArray());
   py::print(test(0, 0));
-  std::cout << test.addOne(10.0) << std::endl;
+  std::cout << test.addOne() << std::endl;
 
   auto row = test(1);
   for(size_t i=0; i<test.width; i++)
@@ -35,7 +35,7 @@ int main(void){
 
   auto test2 = model::Image<int>(a);
   std::cout << test2 << std::endl;
-  std::cout << test2.addOne(1) << std::endl;
+  std::cout << test2.addOne() << std::endl;
 
   return 0;
 }
