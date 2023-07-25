@@ -197,6 +197,8 @@ print()
 # https://github.com/pybind/pybind11/blob/master/include/pybind11/numpy.h#L1020
 # constructors or something. I think I'm calling the L1059 - but unclear how a
 # default "handle"  prevents deletion (I guess it auto-increments a PyRef?)
+# Yep, I think it's this:
+# https://pybind11.readthedocs.io/en/stable/upgrade.html?highlight=pybind11%3A%3Aself#stricter-compile-time-error-checking
 print("Delete array, then access image. No error expected.")
  # we have to garbage collect in case the object remains alive
 import gc
