@@ -59,8 +59,8 @@ PYBIND11_MODULE(core, m) {
    */
   model::image_type_bindings_factory<double>(m, "Double");
   model::image_type_bindings_factory<float>(m, "Float");
-  model::image_type_bindings_factory<int>(m, "Int32"); // I will say CPPPref stated long int is at least 32, int is 64
-  model::image_type_bindings_factory<long int>(m, "Int64"); // and long long int is at least 64, but that doesn't
-  //model::image_type_bindings_factory<long long int>(m, "Int64"); // really seem to matter.
+  model::image_type_bindings_factory<int>(m, "Int32"); // I will say CPPPref stated `long int` is at least 32
+  model::image_type_bindings_factory<long int>(m, "Int64"); // `int` at least 16, and `long long int` is at least 64,
+                                                            // but that doesn't really seem to matter. Wild wild west
 
 }

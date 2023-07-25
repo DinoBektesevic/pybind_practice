@@ -7,11 +7,150 @@
 #include <string>
 #include <vector>
 #include <iostream>
+#include <algorithm> // copy
+#include <utility> // swap
 #include <csignal>
 
 #include <pybind11/pybind11.h>
 #include <pybind11/numpy.h>
 namespace py = pybind11;
+
+namespace arrays {
+  // cleverrer design?
+  // https://stackoverflow.com/questions/994488/what-is-proxy-class-in-c
+
+  // Forward declarations for arr2d proxies.
+  template<typename T>
+  class proxy;
+
+
+  template<typename T>
+  class const_proxy;
+
+
+  template <typename T>
+  class arr2d {
+  public:
+    arr2d() {}
+
+    arr2d(std::size_t n, std::size_t m)
+      : storage(new T[n*m]), n(n), m(m) {}
+
+    arr2d(std::size_t n, std::size_t m, T* ptr)
+      : storage(ptr), n(n), m(n) {}
+
+    arr2d(arr2d const& that)
+      : storage(new T[that.n*that.m]), n(that.n), m(that.m) {
+      std::copy(that.begin(), that.end(), this->begin());
+    }
+
+    arr2d(arr2d&& that)
+      : storage(std::move(that.storage)), n(that.n), m(that.m) {
+      that.n = that.m = 0;
+    }
+
+    arr2d& operator=(arr2d that) {
+      swap(*this, that);
+      return *this;
+    }
+
+    std::size_t rows() const { return n; }
+    std::size_t columns() const { return m; }
+
+    proxy<T> operator[](std::ptrdiff_t index) {
+      assert(index >= 0 && index < n);
+      return proxy<T>(storage.get(), index, m);
+    }
+
+    const_proxy<T> operator[](std::ptrdiff_t index) const {
+      assert(index >= 0 && index < n);
+      return const_proxy<T>(storage.get(), index, m);
+    }
+
+    T* begin() { return &storage[0]; }
+    T* end() { return &storage[0] + n*m; }
+    T* data() { return &storage[0]; }
+    T const* begin() const { return &storage[0]; }
+    T const* end() const { return &storage[0] + n*m; }
+    T const* data() const { return &storage[0]; }
+
+    friend void swap(arr2d& x, arr2d& y) {
+      std::swap(x.storage, y.storage);
+      std::swap(x.n, y.n);
+      std::swap(x.m, y.m);
+    }
+
+  private:
+    friend class proxy<T>;
+    friend class const_proxy<T>;
+
+    //T* storage;
+    std::unique_ptr<T[]> storage;
+    std::size_t n;
+    std::size_t m;
+    // I am worried Python can not rescind it's ownership in all circumstances
+    // and a free will be called or a double free will be called if we use:
+    //std::unique_ptr<T[]> storage;
+    //std::shared_ptr<T[]> storage;
+    // but that would be so cool to be able to do. I need to read
+    // https://pybind11.readthedocs.io/en/stable/advanced/smart_ptrs.html#std-shared-ptr
+    // more carefully again and perhaps check out some source code
+    //T* storage;
+  };
+
+  template<typename T>
+  class proxy {
+  public:
+    T& operator[](std::ptrdiff_t index) {
+      assert(index >= 0 && index < m);
+      return storage[row * m + index];
+    }
+    T* begin() { return &storage[row * m]; }
+    T* end() { return &storage[row * m] + m; }
+    T* data() { return &storage[row * m]; }
+
+  private:
+    template<typename type>
+    void operator=(type const&);
+
+    friend class arr2d<T>;
+
+    proxy(T* storage, std::ptrdiff_t row, std::size_t m)
+      : storage(storage), row(row), m(m) {}
+
+    T* storage;
+    //std::unique_ptr<T*> storage;
+    std::ptrdiff_t row;
+    std::size_t m;
+  };
+
+
+  template<typename T>
+  class const_proxy {
+  public:
+    T const& operator[](std::ptrdiff_t index) {
+      assert(index >= 0 && index < m);
+      return storage[row * m + index];
+    }
+    T const* begin() const { return &storage[row * m]; }
+    T const* end() const { return &storage[row * m] + m; }
+    T const* data() const { return &storage[row * m]; }
+
+  private:
+    template<typename type>
+    void operator=(type const&);
+
+    friend class arr2d<T>;
+
+    const_proxy(T const* storage, std::ptrdiff_t row, std::size_t m)
+      : storage(storage), row(row), m(m) {}
+
+    T const* storage;
+    //std::unique_ptr<T const*> storage;
+    std::ptrdiff_t row;
+    std::size_t m;
+  };
+} // arrays
 
 
 namespace model {
@@ -20,57 +159,58 @@ namespace model {
   struct Image {
     // I see no reasons why anything should be private. All the methods and
     // attributes exist for NumPy arrays, so the user would expect to see
-    // them if we are already pretending to be a numpy array equivalent
-    unsigned width;
-    unsigned height;
-    py::ssize_t itemsize;
-    py::ssize_t size;
-    std::vector<py::ssize_t> shape;
+    // them if we are already pretending to be a numpy array equivalent. We also
+    // don't really need to carry all this stuff with us either, or we could put
+    // it in the bindings and carry the whole buffer along.
+
+    // this doesn't exist for np arrays, but we add it because it's guaranteed
+    // we only work with 2D data.
+    std::size_t width;
+    std::size_t height;
+
+    // internal numpy str name for the datatypes underlying its formats
+    // usually only refered to through a dtype. Also not accessible from Python
     std::string format;
-    py::ssize_t ndim;
+
+    // all of this exists in Python interface for an np array
+    // py:ssize_t is signed, std::size_t is unsigned
+    std::size_t itemsize;
+    std::size_t size;
+    std::vector<py::ssize_t> shape;
+    std::size_t ndim;
     std::vector<py::ssize_t> strides;
-    // I really wish I could declare this as an array, because of the [][] and
-    // normalcy, but I don't understand how to cast a void* (see below)
-    T* pixels;
+    arrays::arr2d<T> pixels;
 
     /*  ###########################################################
      *                    Constructors and destructors
      *  ########################################################### */
-    Image(const py::array_t<T> arr){
+    Image(py::array_t<T> arr){
       py::buffer_info info = arr.request();
 
       if (info.ndim != 2) throw std::runtime_error("Image must have 2 dimensions.");
 
-      // this doesn't exist for np arrays, but we add it because it's guaranteed
-      // we only work with 2D data.
       this->width = info.shape[1];
       this->height = info.shape[0];
-
-      // All of this exists for a regular np.array and is general-purpose
-      // except maybe the format, which is the numpy name for the datatypes
-      // underlying its formats usually only refered to through a dtype
       this->shape = info.shape;
       this->strides = info.strides;
       this->itemsize = info.itemsize;
       this->size = info.size;
       this->format = info.format;
       this->ndim = info.ndim;
-      // I wish I knew how to cast this into an array?
-      this->pixels = static_cast<T*>(info.ptr);
+      this->pixels = arrays::arr2d<T>(width, height, static_cast<T*>(info.ptr));
     }
 
-
     // I do enjoy how I'm constantly forced to strip and then recreate context
-    template <size_t rows, size_t cols>
+    template <std::size_t rows, std::size_t cols>
     Image (int (&arr)[rows][cols]) {
-      this->width = cols; // sizeof(arr)/sizeof(T);
-      this->height = rows; // sizeof(arr)/sizeof(arr[0]);
+      this->width = cols;
+      this->height = rows;
       this->itemsize = sizeof(T);
       this->size  = width*height;
       this->shape = std::vector<py::ssize_t>({width, height});
       this->format = py::format_descriptor<T>::format();
       this->ndim = 2;
-      this->pixels = &arr[0][0];
+      this->pixels = arrays::arr2d<T>(width, height, &arr[0][0]);
     }
 
 
@@ -98,7 +238,7 @@ namespace model {
 
       auto equal = py::array_t<bool>(this->size);
       auto equal_ptr = static_cast<bool*>(equal.request().ptr);
-      for (size_t i=0; i < this->size; i++){
+      for (std::size_t i=0; i < this->size; i++){
         if (this->pixels[i] != other_ptr[i])
           equal_ptr[i] = false;
         else
@@ -124,7 +264,7 @@ namespace model {
     // natural thing to expect a vector - because that's what Pybind11 says you
     // should do, but it would also be equally reasonable to expect a buffer
     py::array_t<bool> operator==(const py::list other) const{
-      size_t i=0, j=0;
+      std::size_t i=0, j=0;
       auto col_stride = this->strides[0];
       auto row_stride = this->strides[1];
       auto height = other.size();
@@ -152,21 +292,23 @@ namespace model {
       return this->asArray().attr("__getitem__")(key);
     }
 
-    // While we can intercept the getitem operator in python by binding it to
-    // a method that exits back to python - we still need reasonable ways of
-    // accessing items in C++
-    T operator()(const unsigned int i, const unsigned int j){
-      if (i*j > this->size)
-        throw std::out_of_range("Image index out or range.");
-      return this->pixels[j*width + i];
-    }
 
-    T* operator()(const unsigned int i){
-      if (i > this->width)
-        throw std::out_of_range("Image index out or range.");
-      // I really am not sure if this is reasonable?
-      return reinterpret_cast<T (&)[width]> (this->pixels[i*width]);
-    }
+
+//    // While we can intercept the getitem operator in python by binding it to
+//    // a method that exits back to python - we still need reasonable ways of
+//    // accessing items in C++
+//    T operator()(const unsigned int i, const unsigned int j){
+//      if (i*j > this->size)
+//        throw std::out_of_range("Image index out or range.");
+//      return this->pixels[j*width + i];
+//    }
+//
+//    T* operator()(const unsigned int i){
+//      if (i > this->width)
+//        throw std::out_of_range("Image index out or range.");
+//      // I really am not sure if this is reasonable?
+//      return reinterpret_cast<T (&)[width]> (this->pixels[i*width]);
+//    }
 
     // Ooh, I just love this line of logic
     friend std::ostream& operator<<(std::ostream &s, const Image<T> &img) {
@@ -185,24 +327,34 @@ namespace model {
 
     py::array_t<T> asArray() const {
       // A memory leak? No! it's a copy I think.
-      return py::array_t<T>({height, width}, strides, pixels);
+      return py::array_t<T>({height, width}, strides, pixels.data());
     }
 
     Image& addOne(const int x) {
-      for (size_t i=0; i<width; i++)
-        for (size_t j=0; j<height; j++)
-          pixels[i*height + j] += 1.0;
+      // we can iterate over the raw pointer
+      auto elems = this->pixels.data();
+      for (std::size_t i=0; i<width; i++)
+        for (std::size_t j=0; j<height; j++)
+          elems[i*height + j] += 1;
       return *this;
     }
 
     Image& addOne(const double x) {
-      for (size_t i=0; i<width; i++)
-        for (size_t j=0; j<height; j++)
-          pixels[i*height + j] += 1.0;
+      // we can iterate over the raw pointer
+      auto elems = this->pixels.data();
+      for (std::size_t i=0; i<width; i++)
+        for (std::size_t j=0; j<height; j++)
+          elems[i*height + j] += 1.0;
       return *this;
     }
 
-
+    //Image& addOne(const double x) {
+    //  // but it's probably better to follow idiomatic modern C++
+    //  for (auto row : this->pixels)
+    //    for (auto elem : row)
+    //      elem += 1.0;
+    //  return *this;
+    //}
   }; // Image
 
 
@@ -216,7 +368,7 @@ namespace model {
     py::class_<Class>(m, pyclass_name.c_str(), py::buffer_protocol())
       .def_buffer([](Class &m) -> py::buffer_info {
           return py::buffer_info(
-                                 m.pixels,
+                                 m.pixels.data(),
                                  m.itemsize,
                                  m.format,
                                  m.ndim,
@@ -254,7 +406,7 @@ namespace model {
       //clever syntactic sugar for equality operator made this workaround
       // unnecessary
       .def("addOne", static_cast<Class& (Class::*)(int)>(&Class::addOne))
-      .def("addOne", static_cast<Class& (Class::*)(float)>(&Class::addOne));
+      .def("addOne", static_cast<Class& (Class::*)(double)>(&Class::addOne));
   } // image_type_factory
 }; // namespace model
 #endif /* kbmod_IMAGE_H_ */

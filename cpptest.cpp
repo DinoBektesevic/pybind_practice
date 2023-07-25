@@ -26,16 +26,19 @@ int main(void){
 
   auto test = model::Image<int>(arr);
   py::print(test.asArray());
-  py::print(test(0, 0));
+  for (auto elem : test.pixels[0])
+    std::cout << elem << ", ";
+  std::cout << std::endl;
+  py::print(test.pixels[0][0]);
   std::cout << test.addOne(10.0) << std::endl;
 
-  auto row = test(1);
+  auto row = test.pixels[1];
   for(size_t i=0; i<test.width; i++)
     std::cout << "    " << row[i] << std::endl;
 
-  auto test2 = model::Image<int>(a);
-  std::cout << test2 << std::endl;
-  std::cout << test2.addOne(1) << std::endl;
+  //auto test2 = model::Image<int>(a);
+  //std::cout << test2 << std::endl;
+  //std::cout << test2.addOne(1) << std::endl;
 
   return 0;
 }
