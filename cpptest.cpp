@@ -21,21 +21,7 @@ int main(void){
                                                {2, 3},
                                                {2*sizeof(int), sizeof(int)}));
 
-  std::cout << a[0][0] << std::endl;
-  py::print(arr);
-
-  auto test = model::Image<int>(arr);
-  py::print(test.asArray());
-  py::print(test(0, 0));
-  std::cout << test.addOne() << std::endl;
-
-  auto row = test(1);
-  for(size_t i=0; i<test.width; i++)
-    std::cout << "    " << row[i] << std::endl;
-
-  auto test2 = model::Image<int>(a);
-  std::cout << test2 << std::endl;
-  std::cout << test2.addOne() << std::endl;
-
+  auto img = model::Image<int>(arr);
+  std::cout << img.data << std::endl;
   return 0;
 }
