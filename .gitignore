@@ -5,3 +5,6 @@ cmake_install*
 Makefile*
 a.out
 core*
+*.bck
+*.bckup
+*.backup

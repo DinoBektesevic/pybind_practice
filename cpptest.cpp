@@ -9,6 +9,10 @@
 namespace py = pybind11;
 
 
+using DoubleImage = model::Image<double>;
+using IntImage = model::Image<double>;
+
+
 int main(void){
   py::scoped_interpreter guard{}; // start the interpreter and keep it alive
 
@@ -21,7 +25,22 @@ int main(void){
                                                {2, 3},
                                                {2*sizeof(int), sizeof(int)}));
 
-  auto img = model::Image<int>(arr);
-  std::cout << img.data << std::endl;
+  //auto img = model::Image<int>(arr);
+  auto img = IntImage();
+  std::cout << img << std::endl;
+
+  DoubleImage img2 {
+    {2, 3, 4},
+    {5, 6, 7},
+  };
+  std::cout << img2 << std::endl;
+  std::cout << std::endl;
+
+  IntImage img3(3, 3);
+  img3 << 1, 2, 3,
+    4, 5, 6,
+    7, 8, 9;
+  std::cout << img3 << std::endl;
+
   return 0;
 }

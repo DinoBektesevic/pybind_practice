@@ -41,18 +41,23 @@ class Image:
         return cls(arr)
 
 
-iimg = Image.fromArray(arrint)  # good for masks?
-fimg = Image.fromArray(arrfloat)
+#iimg = Image.fromArray(arrint)  # good for masks?
+#testarr = np.array([[3, 2, 1], [7, 6, 5]], order="F", dtype=float)
+#fimg = Image.fromArray(arrfloat)
 dimg = Image.fromArray(arrdouble)
+dimg.data()
+#simg = core.IntImage(big32Arr)
+#simg = core.DoubleImage(arrint)
 
+breakpoint()
 
 print(f"    Instantiation timing ({n_instantiation} repetitions).")
-bigArrT = timeit.timeit(stmt="core.DoubleImage(bigArr)", globals=globals(), number=n_instantiation)
+bigArrT = timeit.timeit(stmt="core.DoubleImage(arrdouble)", globals=globals(), number=n_instantiation)
 big32ArrT = timeit.timeit(stmt="core.IntImage(big32Arr)", globals=globals(), number=n_instantiation)
 print(f"From double: {bigArrT/n_instantiation:>10.7} seconds per iteration; {bigArrT} seconds total.")
 print(f"From  float: {big32ArrT/n_instantiation:>10.7} seconds per iteration; {big32ArrT} seconds total.")
 print()
 print("    Pixel access timings and behaviour:")
-getPixT = timeit.timeit(stmt="dimg.data[:]", globals=globals(), number=n_access)
+getPixT = timeit.timeit(stmt="dimg[:]", globals=globals(), number=n_access)
 print(f"__getitem__[:]: {getPixT/n_access:>10.7} seconds per iteration; {getPixT} seconds total.")
 print()

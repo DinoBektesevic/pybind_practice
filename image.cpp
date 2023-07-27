@@ -1,107 +1,148 @@
 #ifndef kbmod_IMAGE_H_
 #define kbmod_IMAGE_H_
 
-// I'm not sure there's any sense in protecting against not having python shared
-// libraries availible in this implementation.
-#include <assert.h>
-#include <string>
-#include <vector>
-#include <iostream>
-#include <csignal>
-
+#include <sstream>
 #include <pybind11/pybind11.h>
-#include <pybind11/eigen.h>
 #include <pybind11/numpy.h>
-namespace py = pybind11;
+// ABSOLUTELY DO NOT INCLUDE pybind11/eigen.h in this file
+#include <pybind11/eigen.h>
+//#include <Eigen/Core>
 
-// This is a lot more general than is allowed by the typedef in the class
-// but what the heck - let's live a little
-//constexpr bool rowMajor = Matrix::Flags & Eigen::RowMajorBit;
+
+namespace py = pybind11;
 
 namespace model {
 
-  template <typename T>
-  struct Image {
-    typedef Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor> Matrix;
-    typedef Eigen::Stride<Eigen::Dynamic, Eigen::Dynamic> Strides;
+  // For argument sake let's just say that we know the PSF size in advave
+  // like we would for a 3x3 affine transform matrix for example, to better
+  // fit in with showcasing features here
+  using PSF = Eigen::Matrix<float, 10, 10, Eigen::RowMajor>;
 
-    friend class Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>;
+
+  // This too could easily be a typedef also, but for the sake of argument
+  // lets say we wanted to extend the Matrix interface and add "convolve"
+  // as an method for some reason. In this case we are just adding width and height
+  template <typename T>
+  struct Image : public Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor> {
+    using Matrix = Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>;
+    using Matrix::Matrix;
 
     unsigned width;
     unsigned height;
-    Matrix data;
 
-    /*  ###########################################################
-     *                    Constructors and destructors
-     *  ########################################################### */
-    Image (){
-      this->width = 3;
-      this->height = 3;
-      this->data = Matrix::Zero(3, 3);
-    }
+    Image(Matrix arr) :
+      Matrix(arr),
+      width(arr.cols()),
+      height(arr.rows()) {}
 
-    Image(const py::array_t<T> b){
-      py::buffer_info info = b.request();
+  };
 
-      // Why have a strongly typed language when you're going to get silently
-      // implicitly casted anyhow...
-      //py::print("Type short int      " + py::format_descriptor<short int>::format() );
-      //py::print("Type int            " + py::format_descriptor<int>::format() );
-      //py::print("Type long int       " + py::format_descriptor<long int>::format() );
-      //py::print("Type long long int  " + py::format_descriptor<long long int>::format() );
-      //py::print("Type float          " + py::format_descriptor<float>::format() );
-      //py::print("Type double         " + py::format_descriptor<double>::format() );
 
-      auto pytype = py::format_descriptor<T>::format();
-      //py::print("Type T is " + pytype + " array type is " + info.format);
-      if (info.format != pytype)
-        throw std::runtime_error("Incompatible format: expected a " + pytype +
-                                 " array, got " + info.format + " instead.");
+  template <typename T>
+  struct LayeredImage {
 
-      if (info.ndim != 2)
-        throw std::runtime_error("Incompatible buffer dimension!");
+    //using Matrix = Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>;
+    //using MatrixRef = Eigen::Ref<Matrix>;
+    //Matrix sci;
+    //Matrix var;
+    //Matrix mask;
+    //LayeredImage<T>(Matrix science, Matrix variance, Matrix mask) :
+    //  sci(science),
+    //  var(variance),
+    //  mask(mask){}
 
-      auto strides = Strides(info.strides[0]/(py::ssize_t)sizeof(T),
-                             info.strides[1]/(py::ssize_t)sizeof(T));
-
-      //auto strides = Strides(info.strides[rowMajor ? 0 : 1] / (py::ssize_t)sizeof(T),
-      //                       info.strides[rowMajor ? 1 : 0] / (py::ssize_t)sizeof(T));
-
-      // so annoying this style where the broken lines don't de-dent inwards
-      auto map = Eigen::Map<Matrix, 0, Strides>(static_cast<T*>(info.ptr),
-                                                info.shape[0],
-                                                info.shape[1],
-                                                strides);
-      this->data = Matrix(map);
-    }
-  }; // Image
-
+    using TImage = Image<T>;
+    TImage sci;
+    TImage var;
+    Image<int> mask;
+    LayeredImage<T>(TImage science, TImage variance, Image<int> mask) :
+      sci(science),
+      var(variance),
+      mask(mask){}
+  };
 
   /*  ###########################################################
    *                    Binding Factory
    *  ########################################################### */
   template<typename T>
-  void image_type_bindings_factory(py::module &m, const std::string &typestr) {
-    using Class = Image<T>;
-    std::string pyclass_name = typestr + std::string("Image");
-    py::class_<Class>(m, pyclass_name.c_str(), py::buffer_protocol())
-      .def_buffer([](Class &m) -> py::buffer_info {
-        return py::buffer_info(m.data.data(),
-                               sizeof(T),
-                               py::format_descriptor<T>::format(),
-                               2,
-                               {m.height, m.width},
-                               {
-                                 sizeof(T) * m.data.cols(),
-                                 sizeof(T)
-                               });
-        })
-      .def(py::init())
-      .def(py::init<py::array_t<T>>())
-      .def_readonly("width", &Class::width)
-      .def_readonly("height", &Class::height)
-      .def_readonly("data", &Class::data, py::return_value_policy::reference_internal);
+  void layered_type_bindings_factory(py::module &m, const std::string &typestr) {
+
+    // There will be a lot of typedefs and convenience renamings happening it semems
+    using Class = LayeredImage<T>;
+    //using TImage = Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>;
+    //using Matrix = Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>;
+    using Matrix = Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>;
+    using TMatrix = Image<T>;
+    using TMRef = Eigen::Ref<TMatrix>;
+    using IMRef = Eigen::Ref<Image<int>>;
+
+    // Binds the class name dynamically to the specified type
+    std::string img_class_name = typestr + std::string("Image");
+    std::string layered_class_name = typestr + std::string("LayeredImage");
+
+    py::class_<Class>(m, layered_class_name.c_str())
+      .def(py::init<TMatrix, TMatrix, Image<int>>(),
+           py::arg("science").noconvert(true),
+           py::arg("variance").noconvert(true),
+           py::arg("mask").noconvert(true))
+      .def("sci", [](Class& c) {return TMRef(c.sci);})
+      .def("var", [](Class& c) {return TMRef(c.var);})
+      .def("mask", [](Class& c) {return IMRef(c.mask);});
+
+
+
+
+//    std::string img_class_name = typestr + std::string("Image");
+//    std::string matrix_class_name = typestr + std::string("Matrix");
+//
+//    py::class_<Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>>(m, matrix_class_name.c_str());
+//
+//    py::class_<Class, Matrix>(m, img_class_name.c_str(), py::buffer_protocol())
+//      .def_buffer([](Class &m) -> py::buffer_info {
+//        return py::buffer_info(m.data(),
+//                               sizeof(T),
+//                               py::format_descriptor<T>::format(),
+//                               2,
+//                               {m.height, m.width},
+//                               {
+//                                 sizeof(T) * m.cols(),
+//                                 sizeof(T)
+//                               });
+//        })
+//      .def(py::init<>())
+//      //.def(py::init<T>(x))
+//      .def(py::init<py::array>(), py::arg("arr").noconvert(true))
+//      .def_readonly("width", &Class::width)
+//      .def_readonly("height", &Class::height)
+//      .def("data", [](Class& m){return m.data();});
+      //.def("__getitem__", &Class::operator());
+    //.def_readonly("data", &Class::data, py::return_value_policy::reference_internal);
   } // image_type_factory
 }; // namespace model
+
+
+
+namespace Eigen{
+  namespace internal{
+    /* Tell Eigen's expression template system about these new types so that it can
+     * optimize them in its lazy evaluation.
+     */
+
+    template <typename T>
+    struct traits<model::Image<T>>
+      : public Eigen::internal::traits<Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>> {};
+
+    template <typename T>
+    struct evaluator<model::Image<T>>
+      : public Eigen::internal::evaluator<Eigen::Matrix<T, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>> {};
+  }
+}
+
+
+
+
+
+
 #endif /* kbmod_IMAGE_H_ */
+
 
