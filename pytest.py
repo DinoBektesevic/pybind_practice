@@ -12,52 +12,34 @@ listint = [[1, 2], [3, 4]]
 bigArr = np.zeros((2000, 4000))
 big32Arr = np.zeros((2000, 4000), dtype=np.int32)
 
-# We would have to have a delegator that would instantiate the correct C++
-# class depending on the given type of the container. The way to check for the
-# type differs based on the container and if the types are not well matched the
-# CPP code will make a copy (the invoked constructor will be a copy, not a move
-# constructor). Not the worst, because templating requires us to specify a
-# whole bunch of type-bound classes so having them all under one roof for
-# convenience is neat.
-class Image:
-    @classmethod
-    def __get_cpp_class(cls, dtype):
-        # It is critical here to understand the numpy and C++ standards
-        # because this changes system to system
-        # https://en.cppreference.com/w/cpp/language/types
-        # https://numpy.org/doc/stable/reference/arrays.scalars.html#scalars
-        if dtype == "float64":
-            return core.DoubleImage
-        elif dtype == "float32":
-            return core.FloatImage
-        elif dtype == "int64": # This is wrong but nvm
-            return core.IntImage
-        #elif dtype == "int64":
-        #    return core.LongIntImage
 
-    @classmethod
-    def fromArray(cls, arr):
-        cls = cls.__get_cpp_class(arr.dtype.name)
-        return cls(arr)
-
-
-#iimg = Image.fromArray(arrint)  # good for masks?
-#testarr = np.array([[3, 2, 1], [7, 6, 5]], order="F", dtype=float)
-#fimg = Image.fromArray(arrfloat)
-dimg = Image.fromArray(arrdouble)
-dimg.data()
-#simg = core.IntImage(big32Arr)
-#simg = core.DoubleImage(arrint)
-
-breakpoint()
-
-print(f"    Instantiation timing ({n_instantiation} repetitions).")
-bigArrT = timeit.timeit(stmt="core.DoubleImage(arrdouble)", globals=globals(), number=n_instantiation)
-big32ArrT = timeit.timeit(stmt="core.IntImage(big32Arr)", globals=globals(), number=n_instantiation)
-print(f"From double: {bigArrT/n_instantiation:>10.7} seconds per iteration; {bigArrT} seconds total.")
-print(f"From  float: {big32ArrT/n_instantiation:>10.7} seconds per iteration; {big32ArrT} seconds total.")
+# So this would have to be hidden by some lookup because certainly
+# we wouldn't want the users to have to figure out what type they need
+test = core.DI32Layered(arrdouble, arrdouble, arrint.astype(np.int32))
+test = core.DILayered(arrdouble, arrdouble, arrint)
+print(test)
+print(repr(test))
 print()
-print("    Pixel access timings and behaviour:")
-getPixT = timeit.timeit(stmt="dimg[:]", globals=globals(), number=n_access)
-print(f"__getitem__[:]: {getPixT/n_access:>10.7} seconds per iteration; {getPixT} seconds total.")
+
+print(repr(test.get_sci1))
+#print(test.get_sci1())
+print(repr(test.get_sci))
+print(repr(test.get_sci()))
 print()
+
+
+# LOOK AT THIS! ALL NUMPY INDEXING WORKS FLAWLESSLY!
+# too bad it's a method - at least untill I figure out
+# how to bind it to an more of an attribute/property of a class.
+# The issue, however, lies that to do that I need to be able to
+# use .def_property(name, attr, getter, setter) and it's not
+# trivial to access the getters and setters from Eigen without
+# having to bind the whole class and all its overrides
+print(test.get_mask())
+test.get_mask()[:, 0] = 10
+print(test.get_mask())
+print()
+
+# look, it even force-casts correctly!
+test.get_sci()[0] = [27, 28]
+print(test.get_sci())
