@@ -3,7 +3,6 @@ import numpy as np
 
 import core
 
-
 n_instantiation, n_access = 500, 100000
 arrint = np.array([[1, 2], [3, 4]])
 arrdouble = np.array([[1.0, 2.0], [3.0, 4.0]])
@@ -15,16 +14,13 @@ big32Arr = np.zeros((2000, 4000), dtype=np.int32)
 
 # So this would have to be hidden by some lookup because certainly
 # we wouldn't want the users to have to figure out what type they need
-test = core.DI32Layered(arrdouble, arrdouble, arrint.astype(np.int32))
+#test = core.DI32Layered(arrdouble, arrdouble, arrint.astype(np.int32))
 test = core.DILayered(arrdouble, arrdouble, arrint)
 print(test)
 print(repr(test))
 print()
 
-print(repr(test.get_sci1))
-#print(test.get_sci1())
-print(repr(test.get_sci))
-print(repr(test.get_sci()))
+print("readwrite", test.sci)
 print()
 
 
@@ -35,11 +31,11 @@ print()
 # use .def_property(name, attr, getter, setter) and it's not
 # trivial to access the getters and setters from Eigen without
 # having to bind the whole class and all its overrides
-print(test.get_mask())
-test.get_mask()[:, 0] = 10
-print(test.get_mask())
+print(test.mask)
+test.mask[:, 0] = 10
+print(test.mask)
 print()
 
 # look, it even force-casts correctly!
-test.get_sci()[0] = [27, 28]
-print(test.get_sci())
+test.sci[0] = [27, 28]
+print(test.sci)
