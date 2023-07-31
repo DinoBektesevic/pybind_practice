@@ -1,49 +1,69 @@
-name: pybind
+name: kbmod
 channels:
   - conda-forge
   - defaults
 dependencies:
   - _libgcc_mutex=0.1=conda_forge
-  - _openmp_mutex=4.5=2_gnu
+  - _openmp_mutex=4.5=2_kmp_llvm
   - _sysroot_linux-64_curr_repodata_hack=3=h69a702a_13
-  - binutils_impl_linux-64=2.40=hf600244_0
-  - binutils_linux-64=2.40=hbdbef99_1
+  - binutils-meta=1.0.4=0
+  - binutils_impl_linux-64=2.38=h2a08ee3_1
+  - binutils_linux-64=2.38.0=hc2dff05_0
+  - boost=1.82.0=py311hcb41070_0
+  - boost-cpp=1.82.0=he19a28c_1
   - bzip2=1.0.8=h7b6447c_0
   - ca-certificates=2023.7.22=hbcca054_0
-  - clang-format=14.0.6=default_hc6dbbc7_1
-  - clang-format-14=14.0.6=default_hc6dbbc7_1
-  - gcc=13.1.0=h8e92de4_1
-  - gcc_impl_linux-64=13.1.0=hc4be1a9_0
-  - gcc_linux-64=13.1.0=hd2d1137_1
-  - gxx=13.1.0=h8e92de4_1
-  - gxx_impl_linux-64=13.1.0=hc4be1a9_0
-  - gxx_linux-64=13.1.0=h5006d2a_1
-  - kernel-headers_linux-64=4.18.0=he073ed8_0
-  - ld_impl_linux-64=2.40=h41732ed_0
-  - libclang-cpp14=14.0.6=default_hc6dbbc7_1
+  - cxx-compiler=1.0.0=hf484d3e_0
+  - gcc=11.2.0=h702ea55_10
+  - gcc_impl_linux-64=11.2.0=h1234567_1
+  - gcc_linux-64=11.2.0=h5c386dc_0
+  - gdb=12.1=py311h467ab62_0
+  - gettext=0.21.1=h27087fc_0
+  - glib=2.76.4=hfc55251_0
+  - glib-tools=2.76.4=hfc55251_0
+  - gmp=6.2.1=h58526e2_0
+  - gxx=11.2.0=h702ea55_10
+  - gxx_impl_linux-64=11.2.0=h1234567_1
+  - gxx_linux-64=11.2.0=hc2dff05_0
+  - icu=72.1=hcb278e6_0
+  - kernel-headers_linux-64=3.10.0=h4a8ded7_13
+  - ld_impl_linux-64=2.38=h1181459_1
+  - libblas=3.9.0=17_linux64_openblas
+  - libcblas=3.9.0=17_linux64_openblas
   - libffi=3.4.4=h6a678d5_0
-  - libgcc-devel_linux-64=13.1.0=he3cc6c4_0
+  - libgcc-devel_linux-64=11.2.0=h1234567_1
   - libgcc-ng=13.1.0=he5830b7_0
+  - libgfortran-ng=13.1.0=h69a702a_0
+  - libgfortran5=13.1.0=h15d22d2_0
+  - libglib=2.76.4=hebfc3b9_0
   - libgomp=13.1.0=he5830b7_0
-  - libllvm14=14.0.6=hdb19cb5_3
-  - libsanitizer=13.1.0=hfd8a6a1_0
-  - libstdcxx-devel_linux-64=13.1.0=he3cc6c4_0
+  - libiconv=1.17=h166bdaf_0
+  - liblapack=3.9.0=17_linux64_openblas
+  - libopenblas=0.3.23=pthreads_h80387f5_0
+  - libstdcxx-devel_linux-64=11.2.0=h1234567_1
   - libstdcxx-ng=13.1.0=hfd8a6a1_0
   - libuuid=1.41.5=h5eee18b_0
+  - libzlib=1.2.13=hd590300_5
+  - llvm-openmp=16.0.6=h4dfa4b3_0
   - ncurses=6.4=h6a678d5_0
+  - numpy=1.25.1=py311h64a7726_0
   - openssl=3.1.1=hd590300_1
+  - pcre2=10.40=hc3806b6_0
+  - pip=23.1.2=py311h06a4308_0
+  - pygments=2.15.1=pyhd8ed1ab_0
   - python=3.11.4=h955ad1f_0
+  - python_abi=3.11=2_cp311
   - readline=8.2=h5eee18b_0
+  - setuptools=67.8.0=py311h06a4308_0
+  - six=1.16.0=pyh6c4a22f_0
   - sqlite=3.41.2=h5eee18b_0
-  - sysroot_linux-64=2.28=he073ed8_0
+  - sysroot_linux-64=2.17=h4a8ded7_13
   - tk=8.6.12=h1ccaba5_0
   - tzdata=2023c=h04d1e81_0
+  - wheel=0.38.4=py311h06a4308_0
   - xz=5.4.2=h5eee18b_0
-  - zlib=1.2.13=h5eee18b_0
+  - zlib=1.2.13=hd590300_5
+  - zstd=1.5.2=hfc55251_7
   - pip:
-    - numpy==1.25.1
-    - pip==23.1.2
-    - setuptools==67.8.0
-    - wheel==0.38.4
-prefix: /astro/users/dinob/.conda/envs/pybind
-
+      - numpy==1.25.2
+prefix: /local/tmp/dinob/conda_envs/kbmod

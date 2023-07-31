@@ -8,34 +8,45 @@ arrint = np.array([[1, 2], [3, 4]])
 arrdouble = np.array([[1.0, 2.0], [3.0, 4.0]])
 arrfloat = np.array([[1, 2], [3, 4]], dtype=np.float32)
 listint = [[1, 2], [3, 4]]
-bigArr = np.zeros((2000, 4000))
+listdouble = [[1.0, 2.0], [3.0, 4.0]]
+bigArr = np.zeros((2000, 4000), dtype=float)
 big32Arr = np.zeros((2000, 4000), dtype=np.int32)
+
+
+print(" "*30 + "Eigen MatrixWrapper")
+print()
+print(f"    Instantiation timing ({n_instantiation} repetitions)")
+bigArrT = timeit.timeit(stmt="core.DoubleImage(arrdouble)", globals=globals(), number=n_instantiation)
+print(f"From double: {bigArrT/n_instantiation:>10.7} seconds per iteration; {bigArrT} seconds total.")
+print()
+print("    Pixel access timings and behaviour:")
+curRawImgArr = core.DoubleImage(arrdouble)
+print(f"Casting in Python: np.array(array.data, copy=False) \n {np.array(curRawImgArr.data, copy=False)}")
+print(f"Casting from  C++: array.data \n {curRawImgArr.data}")
+getPixT = timeit.timeit(stmt="curRawImgArr.data[:]", globals=globals(), number=n_access)
+print(f"__getitem__[:]: {getArrT/n_access:>10.7} seconds per iteration; {getArrT} seconds total.")
+print()
 
 
 # So this would have to be hidden by some lookup because certainly
 # we wouldn't want the users to have to figure out what type they need
-#test = core.DI32Layered(arrdouble, arrdouble, arrint.astype(np.int32))
 test = core.DILayered(arrdouble, arrdouble, arrint)
 print(test)
-print(repr(test))
-print()
-
-print("readwrite", test.sci)
+print(test.sci)
 print()
 
 
 # LOOK AT THIS! ALL NUMPY INDEXING WORKS FLAWLESSLY!
-# too bad it's a method - at least untill I figure out
-# how to bind it to an more of an attribute/property of a class.
-# The issue, however, lies that to do that I need to be able to
-# use .def_property(name, attr, getter, setter) and it's not
-# trivial to access the getters and setters from Eigen without
-# having to bind the whole class and all its overrides
+print("Mask (int) before")
 print(test.mask)
+print("and after setting arr[:, 0]=10")
 test.mask[:, 0] = 10
 print(test.mask)
 print()
 
 # look, it even force-casts correctly!
+print("Science (dobule) before")
+print(test.sci)
+print("and after setting arr[0] = [27, 28]")
 test.sci[0] = [27, 28]
 print(test.sci)
